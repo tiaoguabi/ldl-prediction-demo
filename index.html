@@ -194,7 +194,7 @@
       const tgRaw = parseFloat(document.getElementById('tg').value);
       const hdlRaw = parseFloat(document.getElementById('hdl').value);
 
-      // 校验非法输入
+      // Check for illegal input
       if ([tcRaw, tgRaw, hdlRaw].some(v => isNaN(v) || v < 0)) {
         alert("Please enter valid non-negative numbers for TC, TG, and HDL.");
         return;
