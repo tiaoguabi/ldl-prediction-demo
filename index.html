@@ -34,16 +34,36 @@
     <button type="submit">Predict LDL</button>
   </form>
 
-  <h2>LDL-C Results (mg/dL)</h2>
+  <h2>LDL-C Results</h2>
   <table>
     <thead>
-      <tr><th>Method</th><th>LDL-C</th></tr>
+      <tr>
+        <th>Method</th>
+        <th>LDL-C (mg/dL)</th>
+        <th>LDL-C (mmol/L)</th>
+      </tr>
     </thead>
     <tbody>
-      <tr><td>ML Prediction</td><td id="mlResult">-</td></tr>
-      <tr><td>Friedewald Equation</td><td id="friedewald">-</td></tr>
-      <tr><td>Martin/Hopkins Equation</td><td id="martin">-</td></tr>
-      <tr><td>Sampson Equation</td><td id="sampson">-</td></tr>
+      <tr>
+        <td>ML Prediction</td>
+        <td id="mlMgdl">-</td>
+        <td id="mlMmoll">-</td>
+      </tr>
+      <tr>
+        <td>Friedewald Equation</td>
+        <td id="friedMgdl">-</td>
+        <td id="friedMmoll">-</td>
+      </tr>
+      <tr>
+        <td>Martin/Hopkins Equation</td>
+        <td id="martinMgdl">-</td>
+        <td id="martinMmoll">-</td>
+      </tr>
+      <tr>
+        <td>Sampson Equation</td>
+        <td id="sampsonMgdl">-</td>
+        <td id="sampsonMmoll">-</td>
+      </tr>
     </tbody>
   </table>
 
@@ -57,33 +77,29 @@
   </div>
 
   <script>
-    // Specify path to WASM assets for ONNX Runtime Web
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/';
 
-    // Load the ONNX model from GitHub Raw URL
     async function loadModel() {
       return await ort.InferenceSession.create(
         'https://raw.githubusercontent.com/tiaoguabi/ldl-prediction-demo/main/ebm_model.onnx'
       );
     }
 
-    // Convert values to mg/dL if input is mmol/L
     function convertToMgdl(tc, hdl, tg, unit) {
       if (unit === 'mmoll') {
-        const tc_mg = tc * 38.67;
-        const hdl_mg = hdl * 38.67;
-        const tg_mg = tg * 88.57;
-        return [tc_mg, hdl_mg, tg_mg];
+        return [tc * 38.67, hdl * 38.67, tg * 88.57];
       }
       return [tc, hdl, tg];
     }
 
-    // Friedewald formula implementation
+    function mgdlToMmoll(value) {
+      return value / 38.67;
+    }
+
     function calculateFriedewald(tc, hdl, tg) {
       return tc - hdl - (tg / 5);
     }
 
-    // Martin/Hopkins formula implementation with factor lookup
     function calculateMartin(tc, hdl, tg) {
       const nonHDL = tc - hdl;
       const tgRanges = [0,50,57,62,67,72,76,80,84,88,93,97,101,106,111,116,121,127,133,139,147,155,164,174,186,202,221,248,293,400,Infinity];
@@ -100,16 +116,13 @@
         [7.3,6.7,6.2,5.8,5.5,5.2],[7.6,6.9,6.4,6,5.6,5.3],[8,7.2,6.6,6.2,5.9,5.4],
         [8.5,7.6,7,6.5,6.1,5.6],[9.5,8.3,7.5,7,6.5,5.9],[11.9,10,8.8,8.1,7.5,6.7]
       ];
-      // find tg range index
       let tgIdx = tgRanges.findIndex((v,i) => tg >= tgRanges[i] && tg < tgRanges[i+1]);
-      // find nonHDL bin index
       let nonIdx = nonHDLBins.findIndex((v,i) => nonHDL >= nonHDLBins[i] && nonHDL < nonHDLBins[i+1]);
       if (tgIdx < 0 || nonIdx < 0) return NaN;
       let factor = factorValues[tgIdx][nonIdx];
       return nonHDL - (tg / factor);
     }
 
-    // Sampson formula implementation
     function calculateSampson(tc, hdl, tg) {
       const nonHDL = tc - hdl;
       return (tc / 0.948) - (hdl / 0.971)
@@ -117,18 +130,16 @@
              - 9.44;
     }
 
-    // Main predict handler
     async function predict(event) {
       event.preventDefault();
       document.getElementById('errorMsg').innerText = '';
-      // get raw inputs
+
       let tc = parseFloat(document.getElementById('tc').value);
       let tg = parseFloat(document.getElementById('tg').value);
       let hdl= parseFloat(document.getElementById('hdl').value);
-      // check unit and convert
       const unit = document.querySelector('input[name="unit"]:checked').value;
       [tc, hdl, tg] = convertToMgdl(tc, hdl, tg, unit);
-      // load and run ML model
+
       const session = await loadModel();
       const feeds = {
         [session.inputNames[0]]: new ort.Tensor('float64', new Float64Array([tc]), [1]),
@@ -137,22 +148,28 @@
       };
       const results = await session.run(feeds);
       const mlLDL = results[session.outputNames[0]].data[0];
-      // calculate formula results
+
       const fried = calculateFriedewald(tc, hdl, tg);
       const mart = calculateMartin(tc, hdl, tg);
       const samp = calculateSampson(tc, hdl, tg);
-      // format display
-      function format(v) { if (isNaN(v) || v <= 0) return 'Invalid (Consider direct LDL-C)'; return v.toFixed(2); }
-      document.getElementById('mlResult').innerText  = format(mlLDL);
-      document.getElementById('friedewald').innerText = format(fried);
-      document.getElementById('martin').innerText    = format(mart);
-      document.getElementById('sampson').innerText   = format(samp);
+
+      function formatMgdl(v) { return (isNaN(v) || v <= 0) ? 'Invalid (Consider direct LDL-C)' : v.toFixed(2); }
+      function formatMmoll(v) { return (isNaN(v) || v <= 0) ? 'Invalid' : (mgdlToMmoll(v)).toFixed(2); }
+
+      document.getElementById('mlMgdl').innerText    = formatMgdl(mlLDL);
+      document.getElementById('mlMmoll').innerText   = formatMmoll(mlLDL);
+      document.getElementById('friedMgdl').innerText = formatMgdl(fried);
+      document.getElementById('friedMmoll').innerText= formatMmoll(fried);
+      document.getElementById('martinMgdl').innerText= formatMgdl(mart);
+      document.getElementById('martinMmoll').innerText= formatMmoll(mart);
+      document.getElementById('sampsonMgdl').innerText= formatMgdl(samp);
+      document.getElementById('sampsonMmoll').innerText= formatMmoll(samp);
+
       if ([mlLDL, fried, mart, samp].some(x => isNaN(x) || x <= 0)) {
         document.getElementById('errorMsg').innerText = 'Warning: One or more LDL-C estimates are invalid. Consider direct LDL-C measurement.';
       }
     }
 
-    // attach handler
     document.getElementById('inputForm').addEventListener('submit', predict);
   </script>
 </body>
