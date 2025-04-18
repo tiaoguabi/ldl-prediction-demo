@@ -4,20 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LDL Prediction</title>
-  <!-- 正确加载 onnxruntime-web，暴露全局 ort 对象 -->
+  <!-- Load ONNX Runtime Web so that `ort` is defined -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.min.js"></script>
 </head>
 <body>
   <h1>LDL Prediction Model</h1>
   <form id="inputForm">
     <label for="tc">Total Cholesterol:</label>
-    <input type="number" id="tc" required /><br /><br/>
+    <input type="number" id="tc" required /><br /><br />
 
     <label for="tg">Triglycerides:</label>
-    <input type="number" id="tg" required /><br /><br/>
+    <input type="number" id="tg" required /><br /><br />
 
     <label for="hdl">HDL Cholesterol:</label>
-    <input type="number" id="hdl" required /><br /><br/>
+    <input type="number" id="hdl" required /><br /><br />
 
     <button type="submit">Predict LDL</button>
   </form>
@@ -25,11 +25,11 @@
   <h2>Predicted LDL: <span id="result">-</span></h2>
 
   <script>
-    // 可选：指定 WASM 文件加载路径
+    // Point to the ONNX Runtime WebAssembly assets
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/';
 
+    // Load the ONNX model from GitHub Raw URL
     async function loadModel() {
-      // 原始 GitHub Raw 链接
       return await ort.InferenceSession.create(
         'https://raw.githubusercontent.com/tiaoguabi/ldl-prediction-demo/main/ebm_model.onnx'
       );
@@ -37,32 +37,40 @@
 
     async function predict(event) {
       event.preventDefault();
-      const tc  = parseFloat(document.getElementById('tc').value);
-      const tg  = parseFloat(document.getElementById('tg').value);
+
+      // Read numeric values from the form
+      const tc = parseFloat(document.getElementById('tc').value);
+      const tg = parseFloat(document.getElementById('tg').value);
       const hdl = parseFloat(document.getElementById('hdl').value);
 
+      // Load the model session
       const session = await loadModel();
 
-      // 打印模型实际的输入名称，便于调试
-      console.log('Model inputs:', session.inputNames);
+      // Log the model's actual input names for verification
+      console.log('Model expects inputs:', session.inputNames);
 
-      // 根据 Python 端的 input_data 格式，为每个键分别构建张量
+      // Construct feeds exactly like Python's list-based input_data2
       const feeds = {
-        // 对应 Python 中 'Total cholesterol'：&#8203;:contentReference[oaicite:1]{index=1}
+        // Each feature must be wrapped in an array of length 1
         [session.inputNames[0]]: new ort.Tensor('float32', new Float32Array([tc]), [1]),
         [session.inputNames[1]]: new ort.Tensor('float32', new Float32Array([tg]), [1]),
         [session.inputNames[2]]: new ort.Tensor('float32', new Float32Array([hdl]), [1]),
       };
 
-      // 执行推理
-      const results    = await session.run(feeds);
+      // Run inference
+      const results = await session.run(feeds);
+
+      // Get the first (and only) output name
       const outputName = session.outputNames[0];
 
-      // 获取并展示预测值
+      // Extract the single prediction value
       const prediction = results[outputName].data[0];
+
+      // Display the result rounded to two decimals
       document.getElementById('result').innerText = prediction.toFixed(2);
     }
 
+    // Attach the predict function to form submission
     document.getElementById('inputForm').addEventListener('submit', predict);
   </script>
 </body>
