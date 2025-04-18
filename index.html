@@ -1,25 +1,28 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LDL 预测示例</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LDL Prediction Demo</title>
   <!-- Load ONNX Runtime Web to expose the global `ort` object -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.min.js"></script>
 </head>
 <body>
   <h1>LDL Prediction Model</h1>
   <form id="inputForm">
-    <label for="tc">Total Cholesterol (TC)：</label>
-    <input type="number" id="tc" required /><br /><br/>
-    <label for="tg">Triglycerides (TG)：</label>
-    <input type="number" id="tg" required /><br /><br/>
-    <label for="hdl">HDL Cholesterol：</label>
-    <input type="number" id="hdl" required /><br /><br/>
+    <label for="tc">Total Cholesterol (TC) (mg/dL):</label>
+    <input type="number" id="tc" required /><br /><br />
+
+    <label for="tg">Triglycerides (TG) (mg/dL):</label>
+    <input type="number" id="tg" required /><br /><br />
+
+    <label for="hdl">HDL Cholesterol (mg/dL):</label>
+    <input type="number" id="hdl" required /><br /><br />
+
     <button type="submit">Predict LDL</button>
   </form>
 
-  <h2>预测结果：<span id="result">-</span></h2>
+  <h2>Predicted LDL: <span id="result">-</span></h2>
 
   <script>
     // Specify path to WASM assets for ONNX Runtime Web
@@ -37,17 +40,15 @@
       event.preventDefault();
 
       // Parse numeric inputs from the form
-      const tc  = parseFloat(document.getElementById('tc').value);
-      const tg  = parseFloat(document.getElementById('tg').value);
+      const tc = parseFloat(document.getElementById('tc').value);
+      const tg = parseFloat(document.getElementById('tg').value);
       const hdl = parseFloat(document.getElementById('hdl').value);
 
       // Create a session for inference
       const session = await loadModel();
-      console.log('Model inputs:', session.inputNames);
 
       // Construct feeds matching Python's list-based input_data2
       const feeds = {
-        // Each input is wrapped in a Float64Array to match tensor(double)
         [session.inputNames[0]]: new ort.Tensor('float64', new Float64Array([tc]), [1]),
         [session.inputNames[1]]: new ort.Tensor('float64', new Float64Array([hdl]), [1]),
         [session.inputNames[2]]: new ort.Tensor('float64', new Float64Array([tg]), [1]),
