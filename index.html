@@ -70,13 +70,13 @@
     </fieldset>
 
     <label for="tc">Total Cholesterol (TC):</label>
-    <input type="number" id="tc" required />
+    <input type="number" id="tc" step="any" min="0" required />
 
     <label for="tg">Triglycerides (TG):</label>
-    <input type="number" id="tg" required />
+    <input type="number" id="tg" step="any" min="0" required />
 
     <label for="hdl">HDL Cholesterol:</label>
-    <input type="number" id="hdl" required />
+    <input type="number" id="hdl" step="any" min="0" required />
 
     <button type="submit">Predict LDL-C</button>
   </form>
@@ -188,10 +188,21 @@
 
     document.getElementById('inputForm').addEventListener('submit', async e => {
       e.preventDefault();
+
       const unit = getSelectedUnit();
-      const tc = toMg(parseFloat(document.getElementById('tc').value), unit);
-      const tg = toMg(parseFloat(document.getElementById('tg').value), unit, true);
-      const hdl = toMg(parseFloat(document.getElementById('hdl').value), unit);
+      const tcRaw = parseFloat(document.getElementById('tc').value);
+      const tgRaw = parseFloat(document.getElementById('tg').value);
+      const hdlRaw = parseFloat(document.getElementById('hdl').value);
+
+      // 校验非法输入
+      if ([tcRaw, tgRaw, hdlRaw].some(v => isNaN(v) || v < 0)) {
+        alert("Please enter valid non-negative numbers for TC, TG, and HDL.");
+        return;
+      }
+
+      const tc = toMg(tcRaw, unit);
+      const tg = toMg(tgRaw, unit, true);
+      const hdl = toMg(hdlRaw, unit);
 
       const session = await loadModel();
       const feeds = {
